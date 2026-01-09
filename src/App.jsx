@@ -97,11 +97,23 @@ const BabyDdayApp = () => {
     today.setHours(0, 0, 0, 0);
     const diffTime = today - start;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays + 1;
+    return diffDays;
   };
 
   const getDisplayData = () => {
     const days = calculateDday();
+
+    if (days < 0) {
+      return {
+        cards: ['D', '-', `${-days}`], 
+        label: '세상으로 나올 준비 중' 
+      };
+    } else if (days === 0) {
+      return {
+        cards: ['D', '-', 'Day'], 
+        label: '우리에게 와줘서 고마워❤️' 
+      };
+    }
     
     if (viewMode === 'days') {
       return { 

@@ -1,69 +1,178 @@
-import React, { useState, useRef } from 'react';
-import { Settings, Calendar, Heart, Star, Smile, Crown, Cloud, Sun, X, RefreshCw, Type, Palette, Cross, Bird, Image as ImageIcon, Upload } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Settings, Calendar, Heart, Star, Smile, Crown, Cloud, Bird, Image as ImageIcon, Upload, X, Palette, Type, PenTool } from 'lucide-react';
+import useLocalStorage from './hooks/useLocalStorage';
+
+// --- Sub-components defined outside to prevent re-creation ---
+
+const Sticker = ({ children, className }) => (
+  <div className={`sticker absolute top-[-20px] right-[-20px] animate-pendulum hover:scale-110 transition-transform ${className}`}>
+    {children}
+  </div>
+);
+
+const Decoration = ({ type, currentTheme }) => {
+  const iconProps = { size: 90, className: `${currentTheme.accent} fill-current opacity-90` }; 
+  switch (type) {
+    case 'bear': return <Sticker><Smile {...iconProps} /></Sticker>;
+    case 'star': return <Sticker><Star {...iconProps} /></Sticker>;
+    case 'cloud': return <Sticker><Cloud {...iconProps} /></Sticker>;
+    case 'crown': return <Sticker><Crown {...iconProps} /></Sticker>;
+    case 'cross': return (
+      <Sticker>
+        <svg viewBox="0 0 24 24" fill="currentColor" className={iconProps.className} width="90" height="90">
+          <path d="M11 2v6H5v4h6v10h2V12h6V8h-6V2h-2z" />
+        </svg>
+      </Sticker>
+    );
+    case 'dove': return <Sticker><Bird {...iconProps} /></Sticker>;
+    default: return null;
+  }
+};
+
+const FlipCard = ({ text, currentTheme }) => {
+  // Adjust font size based on text length to keep "Day" or long numbers fitting nicely
+  const isLongText = text.toString().length > 2;
+  const fontSizeClass = isLongText 
+    ? "text-4xl md:text-6xl lg:text-[5rem]" 
+    : "text-5xl md:text-7xl lg:text-[7rem]";
+
+  return (
+    <div className="flex flex-col items-center mx-1 md:mx-3 group relative">
+      {/* Binding Rings */}
+      <div className="absolute -top-4 w-full flex justify-around px-4 z-20">
+         <div className={`w-3 h-10 rounded-full bg-gradient-to-b ${currentTheme.ringColor} shadow-sm ring-1 ring-black/20`}></div>
+         <div className={`w-3 h-10 rounded-full bg-gradient-to-b ${currentTheme.ringColor} shadow-sm ring-1 ring-black/20`}></div>
+      </div>
+      
+      {/* Card Body */}
+      <div className={`
+        relative bg-[#fffdf9]
+        min-w-[70px] md:min-w-[120px] lg:min-w-[160px]
+        h-[100px] md:h-[160px] lg:h-[220px]
+        rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)]
+        border border-gray-200
+        flex items-center justify-center
+        transform transition-transform duration-300 hover:rotate-1
+      `}>
+         {/* Holes */}
+         <div className="absolute top-4 w-full flex justify-around px-4">
+            <div className="w-4 h-4 rounded-full bg-[#444] shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]"></div>
+            <div className="w-4 h-4 rounded-full bg-[#444] shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]"></div>
+         </div>
+         
+         {/* Center Crease */}
+         <div className="absolute top-1/2 left-0 w-full h-[1px] bg-gray-200 z-0"></div>
+         <div className="absolute top-1/2 left-0 w-full h-[2px] card-crease z-0"></div>
+
+         {/* Text */}
+         <span className={`${fontSizeClass} font-bold ${currentTheme.text} leading-none mt-4 z-10 drop-shadow-sm`}>
+           {text}
+         </span>
+      </div>
+    </div>
+  );
+};
+
+const Polaroid = ({ currentTheme, photoUrl, birthDate, onPhotoClick }) => (
+  <div className="relative group perspective-1000">
+    {/* Washi Tape */}
+    <div className={`washi-tape -top-4 left-1/2 -translate-x-1/2 z-20 ${currentTheme.tape}`}></div>
+    
+    <div 
+      onClick={onPhotoClick}
+      className={`
+        relative
+        w-56 h-64 md:w-72 md:h-80 lg:w-80 lg:h-96
+        bg-white p-3 pb-12
+        shadow-xl transform rotate-[-3deg] transition-all duration-300
+        hover:scale-105 hover:rotate-0 hover:z-10 hover:shadow-2xl
+        cursor-pointer
+        flex flex-col
+        border border-gray-100
+      `}
+    >
+      <div className="w-full h-full bg-gray-100 overflow-hidden relative shadow-inner">
+         {photoUrl ? (
+           <img src={photoUrl} alt="Baby" className="w-full h-full object-cover filter contrast-[1.05] brightness-[1.05] sepia-[0.1]" />
+         ) : (
+           <div className="flex flex-col items-center justify-center h-full text-gray-300">
+             <ImageIcon size={48} className="mb-2 opacity-50" />
+             <span className="font-handwriting text-sm">Tap to add photo</span>
+           </div>
+         )}
+         <div className="absolute inset-0 bg-gradient-to-tr from-orange-500/10 to-blue-500/10 mix-blend-overlay pointer-events-none"></div>
+      </div>
+      
+      {/* Handwritten Date Label */}
+      <div className={`absolute bottom-3 right-4 font-handwriting text-gray-400 rotate-[-1deg] text-lg md:text-xl`}>
+        {birthDate.replaceAll('-', '.')}
+      </div>
+    </div>
+  </div>
+);
+
 
 const BabyDdayApp = () => {
-  // --- State Management ---
-  const [babyName, setBabyName] = useState('사랑스런 아기');
-  const [birthDate, setBirthDate] = useState(new Date().toISOString().split('T')[0]);
-  const [viewMode, setViewMode] = useState('days'); // 'days', 'weeks', 'months'
-  const [theme, setTheme] = useState('warm'); // 'warm', 'cool', 'pink', 'mono'
-  const [decoration, setDecoration] = useState('bear'); // 'bear', 'star', 'cloud', 'cross', 'dove'
-  const [fontStyle, setFontStyle] = useState('rounded'); // 'rounded', 'hand', 'serif'
-  const [quoteIndex, setQuoteIndex] = useState(0);
-  const [customQuote, setCustomQuote] = useState(''); // State for custom user quote
-  const [photoUrl, setPhotoUrl] = useState(null); // State for uploaded photo
-  const [showSettings, setShowSettings] = useState(false);
+  // --- State Management with Local Storage ---
+  const [babyName, setBabyName] = useLocalStorage('babyName', '사랑스런 아기');
+  const [birthDate, setBirthDate] = useLocalStorage('birthDate', new Date().toISOString().split('T')[0]);
+  const [viewMode, setViewMode] = useLocalStorage('viewMode', 'days'); 
+  const [theme, setTheme] = useLocalStorage('theme', 'warm'); 
+  const [decoration, setDecoration] = useLocalStorage('decoration', 'bear'); 
+  const [fontStyle, setFontStyle] = useLocalStorage('fontStyle', 'rounded'); 
+  const [quoteIndex, setQuoteIndex] = useLocalStorage('quoteIndex', 0);
+  const [customQuote, setCustomQuote] = useLocalStorage('customQuote', ''); 
+  const [photoUrl, setPhotoUrl] = useLocalStorage('photoUrl', null); 
+  
+  // Settings visibility doesn't need persistence
+  const [showSettings, setShowSettings] = React.useState(false);
   const fileInputRef = useRef(null);
 
   // --- Constants & Themes ---
   const themes = {
     warm: {
-      bg: 'bg-[#fdf6e3]',
-      card: 'bg-[#fffbf0]',
+      id: 'warm',
+      containerBg: 'bg-paper-warm',
+      card: 'bg-[#fffdf5]',
       text: 'text-[#5c4b43]',
-      accent: 'text-[#d4a373]',
-      border: 'border-[#e6ccb2]',
-      button: 'bg-[#d4a373] hover:bg-[#c59260]',
-      blockBg: 'bg-[#ffffff]',
-      blockShadow: 'shadow-[#d7c4bb]',
-      blockBorder: 'border-[#e6ccb2]',
-      ringColor: 'from-amber-200 to-amber-500',
+      accent: 'text-[#8d6e63]',
+      border: 'border-[#d7ccc8]',
+      tape: 'bg-[#d7ccc8]',
+      button: 'bg-[#8d6e63] hover:bg-[#795548]',
+      ringColor: 'from-amber-700 to-amber-900',
     },
     cool: {
-      bg: 'bg-[#e0f7fa]',
+      id: 'cool',
+      containerBg: 'bg-paper-cool',
       card: 'bg-[#ffffff]',
-      text: 'text-[#37474f]',
-      accent: 'text-[#4dd0e1]',
-      border: 'border-[#b2ebf2]',
-      button: 'bg-[#4dd0e1] hover:bg-[#26c6da]',
-      blockBg: 'bg-[#ffffff]',
-      blockShadow: 'shadow-[#b2ebf2]',
-      blockBorder: 'border-[#b2ebf2]',
-      ringColor: 'from-slate-300 to-slate-400',
+      text: 'text-[#455a64]',
+      accent: 'text-[#607d8b]',
+      border: 'border-[#cfd8dc]',
+      tape: 'bg-[#90a4ae]',
+      button: 'bg-[#607d8b] hover:bg-[#546e7a]',
+      ringColor: 'from-slate-600 to-slate-800',
     },
     pink: {
-      bg: 'bg-[#fce4ec]',
-      card: 'bg-[#fff0f5]',
+      id: 'pink',
+      containerBg: 'bg-paper-pink',
+      card: 'bg-[#fff5f8]',
       text: 'text-[#880e4f]',
-      accent: 'text-[#f48fb1]',
-      border: 'border-[#f8bbd0]',
-      button: 'bg-[#f48fb1] hover:bg-[#f06292]',
-      blockBg: 'bg-[#ffffff]',
-      blockShadow: 'shadow-[#f8bbd0]',
-      blockBorder: 'border-[#f8bbd0]',
-      ringColor: 'from-rose-200 to-rose-400',
+      accent: 'text-[#ad1457]',
+      border: 'border-[#f48fb1]',
+      tape: 'bg-[#f48fb1]',
+      button: 'bg-[#ec407a] hover:bg-[#d81b60]',
+      ringColor: 'from-pink-600 to-pink-800',
     },
     mono: {
-      bg: 'bg-[#f5f5f5]',
+      id: 'mono',
+      containerBg: 'bg-paper-mono',
       card: 'bg-[#ffffff]',
       text: 'text-[#212121]',
-      accent: 'text-[#757575]',
-      border: 'border-[#e0e0e0]',
-      button: 'bg-[#757575] hover:bg-[#616161]',
-      blockBg: 'bg-[#ffffff]',
-      blockShadow: 'shadow-[#dcdcdc]',
-      blockBorder: 'border-[#dcdcdc]',
-      ringColor: 'from-gray-300 to-gray-500',
+      accent: 'text-[#424242]',
+      border: 'border-[#9e9e9e]',
+      tape: 'bg-[#bdbdbd]',
+      button: 'bg-[#616161] hover:bg-[#424242]',
+      ringColor: 'from-gray-700 to-gray-900',
     }
   };
 
@@ -77,19 +186,18 @@ const BabyDdayApp = () => {
     "믿음 소망 사랑 그 중의 제일은 사랑",
     "여호와는 너를 지키시는 이시라",
     "(문구 없음)",
-    "직접 입력" // Added option for custom input
+    "직접 입력" 
   ];
 
-  const currentTheme = themes[theme];
+  const currentTheme = themes[theme] || themes.warm;
 
-  // Font Classes
   const fontClasses = {
-    rounded: 'font-jua',   // Jua
-    hand: 'font-gamja',    // Gamja Flower
-    serif: 'font-gowun',   // Gowun Batang
+    rounded: 'font-jua',
+    hand: 'font-gamja', 
+    serif: 'font-gowun',
   };
 
-  // --- Calculations & Logic ---
+  // --- Logic ---
   const calculateDday = () => {
     const start = new Date(birthDate);
     const today = new Date();
@@ -102,31 +210,15 @@ const BabyDdayApp = () => {
 
   const getDisplayData = () => {
     const days = calculateDday();
-
-    if (days < 0) {
-      return {
-        cards: ['D', '-', `${-days}`], 
-        label: '세상으로 나올 준비 중' 
-      };
-    } else if (days === 0) {
-      return {
-        cards: ['D', '-', 'Day'], 
-        label: '우리에게 와줘서 고마워❤️' 
-      };
-    }
+    if (days < 0) return { cards: ['D', '-', `${-days}`], label: '세상으로 나올 준비 중' };
+    if (days === 0) return { cards: ['D', '-', 'Day'], label: '반가워, 아가야❤️' };
     
     if (viewMode === 'days') {
-      return { 
-        cards: ['D', '+', `${days}`], 
-        label: '일째 만남' 
-      };
+      return { cards: ['D', '+', `${days}`], label: '일째 만남' };
     } else if (viewMode === 'weeks') {
       const weeks = Math.floor(days / 7);
       const remainDays = days % 7;
-      return { 
-        cards: [`${weeks}주`, `${remainDays}일`], 
-        label: '무럭무럭 자라는 중' 
-      };
+      return { cards: [`${weeks}주`, `${remainDays}일`], label: '무럭무럭 자라는 중' };
     } else if (viewMode === 'months') {
       const start = new Date(birthDate);
       const today = new Date();
@@ -134,20 +226,20 @@ const BabyDdayApp = () => {
       months -= start.getMonth();
       months += today.getMonth();
       if (today.getDate() < start.getDate()) months--;
-      return { 
-        cards: [`${months}`, '개월'], 
-        label: '함께한 시간' 
-      };
+      return { cards: [`${months}`, '개월'], label: '함께한 시간' };
     }
     return { cards: [], label: '' };
   };
 
   const displayData = getDisplayData();
 
-  // Handle Photo Upload
   const handlePhotoUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
+      if (file.size > 2000000) { // Limit to ~2MB
+        alert("사진 용량이 너무 큽니다. (2MB 이하 권장)");
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoUrl(reader.result);
@@ -156,366 +248,252 @@ const BabyDdayApp = () => {
     }
   };
 
-  // --- Render Helpers ---
-  const renderDecoration = () => {
-    const iconProps = { size: 80, className: `${currentTheme.accent} opacity-15` }; 
-    switch (decoration) {
-      case 'bear': return <div className="absolute top-8 right-8 animate-bounce-slow"><Smile {...iconProps} /></div>;
-      case 'star': return <div className="absolute top-8 right-8 animate-pulse"><Star {...iconProps} /></div>;
-      case 'cloud': return <div className="absolute top-8 right-8 animate-float"><Cloud {...iconProps} /></div>;
-      case 'crown': return <div className="absolute top-8 right-8"><Crown {...iconProps} /></div>;
-      case 'cross': return <div className="absolute top-8 right-8"><Cross {...iconProps} /></div>; 
-      case 'dove': return <div className="absolute top-8 right-8 animate-float"><Bird {...iconProps} /></div>;
-      default: return null;
-    }
-  };
-
-  const ChristianCross = ({ className }) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} width="80" height="80">
-      <path d="M11 2v6H5v4h6v10h2V12h6V8h-6V2h-2z" />
-    </svg>
-  );
-
-  // --- Flip Card Component ---
-  const FlipCard = ({ text, index }) => (
-    <div className="flex flex-col items-center mx-1 md:mx-2 lg:mx-3 group relative">
-      {/* Rings holding the card */}
-      <div className="absolute -top-3 md:-top-5 w-full flex justify-around px-4 md:px-6 z-20">
-         <div className={`w-3 h-8 md:w-5 md:h-12 rounded-full bg-gradient-to-b ${currentTheme.ringColor} shadow-sm ring-1 ring-black/10`}></div>
-         <div className={`w-3 h-8 md:w-5 md:h-12 rounded-full bg-gradient-to-b ${currentTheme.ringColor} shadow-sm ring-1 ring-black/10`}></div>
-      </div>
-      
-      {/* The Card Itself */}
-      <div className={`
-        relative
-        bg-white
-        min-w-[60px] md:min-w-[100px] lg:min-w-[150px]
-        h-[90px] md:h-[150px] lg:h-[220px]
-        rounded-xl md:rounded-3xl
-        shadow-[0_8px_0_rgba(0,0,0,0.05),0_15px_20px_rgba(0,0,0,0.1)]
-        flex items-center justify-center
-        border-b-4 md:border-b-8 ${currentTheme.blockBorder}
-        transform transition-all duration-500 hover:-translate-y-1 hover:rotate-1
-        z-10
-      `}>
-         {/* Punch Holes for rings */}
-         <div className="absolute top-3 md:top-5 w-full flex justify-around px-4 md:px-6">
-            <div className="w-3 h-3 md:w-5 md:h-5 rounded-full bg-[#333] opacity-10 shadow-inner"></div>
-            <div className="w-3 h-3 md:w-5 md:h-5 rounded-full bg-[#333] opacity-10 shadow-inner"></div>
-         </div>
-
-         {/* Text Content - Responsive text sizing */}
-         <span className={`text-4xl md:text-6xl lg:text-[7rem] font-bold ${currentTheme.text} leading-none mt-2 select-none`}>
-           {text}
-         </span>
-         
-         {/* Subtle Paper Texture/Gloss */}
-         <div className="absolute inset-0 rounded-xl md:rounded-3xl bg-gradient-to-b from-white/50 to-transparent pointer-events-none"></div>
-      </div>
-
-      {/* Shadow Reflection on the 'Table' */}
-      <div className="w-[80%] h-4 bg-black/10 blur-md rounded-[100%] mt-2 md:mt-4"></div>
-    </div>
-  );
-
   return (
-    <div className={`min-h-screen w-full flex items-center justify-center p-4 transition-colors duration-500 ${currentTheme.bg} ${fontClasses[fontStyle]}`}>
+    <div className={`min-h-screen w-full flex items-center justify-center p-4 md:p-8 ${currentTheme.containerBg} ${fontClasses[fontStyle]} transition-colors duration-500`}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&family=Gowun+Batang&family=Jua&display=swap');
-        
         .font-jua { font-family: 'Jua', sans-serif; }
         .font-gamja { font-family: 'Gamja Flower', cursive; }
         .font-gowun { font-family: 'Gowun Batang', serif; }
-
-        @keyframes float {
-          0% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
-          100% { transform: translateY(0px); }
-        }
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
-        @keyframes bounce-slow {
-          0%, 100% { transform: translateY(-5%); }
-          50% { transform: translateY(5%); }
-        }
-        .animate-bounce-slow {
-          animation: bounce-slow 2s infinite;
-        }
+        .font-handwriting { font-family: 'Gamja Flower', cursive; }
       `}</style>
 
-      {/* Main Container */}
-      <div className={`relative w-full max-w-7xl aspect-video max-h-[90vh] ${currentTheme.card} rounded-[3rem] shadow-[0_20px_60px_rgba(0,0,0,0.1)] border-[12px] ${currentTheme.border} flex flex-col justify-between overflow-hidden transition-all duration-300 p-8 md:p-12`}>
+      {/* Main Board/Planner */}
+      <div className={`
+        relative w-full max-w-7xl 
+        ${currentTheme.card} 
+        rounded-[4px] md:rounded-[12px]
+        shadow-[0_20px_50px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.05)] 
+        flex flex-col md:flex-row
+        overflow-visible
+        p-6 md:p-12 gap-8 md:gap-16
+        min-h-[80vh]
+      `}>
+        {/* Book Spine / Binding visual for desktop */}
+        <div className="hidden md:block absolute left-1/2 top-4 bottom-4 w-[2px] bg-gradient-to-r from-black/5 to-transparent -ml-[1px]"></div>
         
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-5 pointer-events-none" 
-             style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
+        {/* Left Page: Photo & Info */}
+        <div className="flex-1 flex flex-col items-center justify-start pt-8 relative">
+           <Polaroid 
+             currentTheme={currentTheme} 
+             photoUrl={photoUrl} 
+             birthDate={birthDate} 
+             onPhotoClick={() => fileInputRef.current?.click()} 
+           />
+           <input 
+              type="file" 
+              ref={fileInputRef}
+              onChange={handlePhotoUpload}
+              accept="image/*"
+              className="hidden"
+            />
+           
+           <div className="mt-12 text-center z-10">
+             <h1 className={`text-4xl md:text-6xl ${currentTheme.text} font-bold tracking-tight mb-2 drop-shadow-sm`}>
+               {babyName}
+             </h1>
+             <p className={`text-xl md:text-2xl ${currentTheme.accent} font-serif italic opacity-80`}>
+               Since {birthDate}
+             </p>
+           </div>
         </div>
 
-        {/* Decoration */}
-        {decoration === 'cross' ? 
-          <div className={`absolute top-10 right-10 ${currentTheme.accent} opacity-15`}><ChristianCross /></div> : 
-          renderDecoration()
-        }
-        
-        {/* Top Section: Name and Date Info */}
-        <div className="flex justify-between items-start z-10 w-full mb-2">
-            <div className="flex flex-col items-start">
-                 <div className={`text-3xl md:text-5xl ${currentTheme.text} font-bold tracking-wide`}>
-                    {babyName}
-                </div>
-                <div className={`text-lg md:text-2xl ${currentTheme.accent} opacity-80 mt-2 font-sans`}>
-                    Since {birthDate}
-                </div>
-            </div>
+        {/* Right Page: Calendar & Quote */}
+        <div className="flex-1 flex flex-col items-center justify-center relative">
+           {/* Sticker Decoration */}
+           <div className="absolute top-0 right-0 z-20">
+              <Decoration type={decoration} currentTheme={currentTheme} />
+           </div>
+
+           {/* Calendar Flip Cards */}
+           <div className="flex items-end justify-center flex-nowrap gap-x-1 md:gap-x-2 mb-12 mt-12 md:mt-0">
+               {displayData.cards.map((text, idx) => (
+                 <FlipCard key={idx} text={text} currentTheme={currentTheme} />
+               ))}
+           </div>
+           
+           <div className={`text-2xl md:text-4xl ${currentTheme.accent} font-medium mb-16 border-b-2 border-dotted ${currentTheme.border} pb-2`}>
+               {displayData.label}
+           </div>
+
+           {/* Handwritten Quote */}
+           <div className="w-full max-w-md relative p-6">
+              <span className="absolute top-0 left-0 text-6xl opacity-10 font-serif">"</span>
+              <p className={`text-xl md:text-2xl ${currentTheme.text} text-center leading-relaxed font-handwriting`}>
+                 {quoteIndex === quotes.length - 1 ? (customQuote || "당신의 축복 문구를 적어주세요...") : quotes[quoteIndex]}
+              </p>
+              <span className="absolute bottom-0 right-0 text-6xl opacity-10 font-serif">"</span>
+           </div>
         </div>
 
-        {/* Center Section: Split Layout (Photo Left, Calendar Right) */}
-        <div className="flex-1 flex flex-col md:flex-row items-center justify-center z-10 w-full py-4 gap-6 md:gap-12">
-             
-             {/* Left: Photo Frame Area */}
-             <div className="flex-shrink-0 md:w-1/3 flex justify-center md:justify-end w-full">
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  onChange={handlePhotoUpload}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <div 
-                  onClick={() => fileInputRef.current.click()}
-                  className={`
-                    group relative 
-                    w-48 h-48 md:w-64 md:h-64 lg:w-72 lg:h-72
-                    bg-white rounded-3xl 
-                    shadow-[0_10px_30px_rgba(0,0,0,0.1)] 
-                    border-[8px] ${currentTheme.border}
-                    flex items-center justify-center
-                    overflow-hidden cursor-pointer
-                    transition-transform hover:scale-105 hover:rotate-[-2deg]
-                  `}
-                >
-                  {photoUrl ? (
-                    <img src={photoUrl} alt="Baby" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="flex flex-col items-center text-gray-300 group-hover:text-gray-400 transition-colors">
-                      <ImageIcon size={48} className="mb-2" />
-                      <span className="text-sm font-medium">사진 추가하기</span>
-                    </div>
-                  )}
-                  
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <Upload className="text-white drop-shadow-md" size={32} />
-                  </div>
-                </div>
-                {/* Photo Tape Effect (Optional visual) */}
-                {/* <div className="absolute top-0 w-24 h-8 bg-white/30 rotate-[-15deg] backdrop-blur-sm shadow-sm pointer-events-none"></div> */}
-             </div>
-
-             {/* Right: Flip Cards Calendar */}
-             <div className="flex-1 flex flex-col items-center justify-center">
-                <div className="flex items-end justify-center flex-wrap gap-y-4">
-                    {displayData.cards.map((text, idx) => (
-                      <FlipCard key={idx} text={text} index={idx} />
-                    ))}
-                </div>
-                <div className={`text-xl md:text-3xl ${currentTheme.accent} font-medium mt-6 md:mt-10 opacity-90`}>
-                    {displayData.label}
-                </div>
-             </div>
-        </div>
-
-        {/* Bottom Section: Quote */}
-        <div className="z-10 w-full flex flex-col items-center justify-end pb-4 min-h-[60px]">
-          {(quoteIndex === quotes.length - 1 || (quotes[quoteIndex] !== "(문구 없음)")) && (
-            <div className={`text-xl md:text-3xl ${currentTheme.text} opacity-70 text-center max-w-4xl leading-relaxed`}>
-               <span className="opacity-50 mr-2">❝</span>
-               {quoteIndex === quotes.length - 1 ? (customQuote || "당신의 축복 문구를 설정에서 입력해주세요") : quotes[quoteIndex]}
-               <span className="opacity-50 ml-2">❞</span>
-            </div>
-          )}
-        </div>
-
-        {/* Settings Toggle Button */}
+        {/* Settings Button (Styled as a tab) */}
         <button 
           onClick={() => setShowSettings(true)}
-          className={`absolute bottom-8 right-8 p-4 rounded-full bg-white/50 hover:bg-white shadow-lg backdrop-blur-sm transition-all text-gray-400 hover:text-gray-600 z-50`}
+          className={`
+            absolute -right-3 top-12 
+            bg-white border border-l-0 ${currentTheme.border} 
+            p-3 rounded-r-lg shadow-sm 
+            hover:translate-x-1 transition-transform
+            text-gray-400 hover:text-gray-600
+            z-0
+          `}
         >
-          <Settings size={28} />
+          <Settings size={24} />
         </button>
 
       </div>
 
-      {/* Settings Modal Overlay */}
+      {/* Settings Overlay */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-            {/* Header */}
-            <div className={`p-4 flex justify-between items-center ${currentTheme.bg}`}>
-              <h2 className={`text-xl font-bold ${currentTheme.text} flex items-center gap-2`}>
-                <Settings size={20} /> 설정
-              </h2>
-              <button onClick={() => setShowSettings(false)} className="p-1 hover:bg-black/5 rounded-full">
-                <X size={24} className="text-gray-500" />
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px] p-4">
+          <div className="bg-[#fffbf0] w-full max-w-lg rounded-sm shadow-2xl relative border-8 border-white transform rotate-1">
+             {/* Tape on settings */}
+             <div className="washi-tape -top-3 left-1/2 -translate-x-1/2 w-32 bg-red-100/50"></div>
 
-            {/* Scrollable Content */}
-            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto font-sans">
-              
-              {/* Basic Info */}
-              <div className="space-y-4">
-                <label className="block">
-                  <span className="text-gray-700 font-medium mb-1 block">아기 이름 (태명)</span>
-                  <input 
-                    type="text" 
-                    value={babyName} 
-                    onChange={(e) => setBabyName(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-gray-700 font-medium mb-1 block">생년월일</span>
-                  <input 
-                    type="date" 
-                    value={birthDate} 
-                    onChange={(e) => setBirthDate(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200"
-                  />
-                </label>
-              </div>
+             <div className="p-6 md:p-8 space-y-8 max-h-[85vh] overflow-y-auto">
+               <div className="flex justify-between items-center border-b-2 border-dashed border-gray-200 pb-4">
+                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                   <PenTool size={20}/> 기록 설정
+                 </h2>
+                 <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-red-400 transition-colors">
+                   <X size={28} />
+                 </button>
+               </div>
 
-               <div className="h-px bg-gray-100" />
+               <div className="space-y-6">
+                 {/* Inputs */}
+                 <div className="space-y-4">
+                    <div className="relative">
+                      <label className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 block">Name</label>
+                      <input 
+                        type="text" 
+                        value={babyName} 
+                        onChange={(e) => setBabyName(e.target.value)}
+                        className="w-full bg-transparent border-b-2 border-gray-300 focus:border-gray-800 py-2 text-xl outline-none transition-colors"
+                      />
+                    </div>
+                    <div className="relative">
+                      <label className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 block">Date</label>
+                      <input 
+                        type="date" 
+                        value={birthDate} 
+                        onChange={(e) => setBirthDate(e.target.value)}
+                        className="w-full bg-transparent border-b-2 border-gray-300 focus:border-gray-800 py-2 text-xl outline-none transition-colors font-mono"
+                      />
+                    </div>
+                 </div>
 
-              {/* Quote Selection */}
-              <div>
-                <span className="text-gray-700 font-medium mb-3 block flex items-center gap-2"><Heart size={16}/> 축복 문구 (기독교 & 감성)</span>
-                <select 
-                    value={quoteIndex}
-                    onChange={(e) => setQuoteIndex(Number(e.target.value))}
-                    className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white mb-2"
-                >
-                    {quotes.map((q, idx) => (
+                 {/* Quote Selector */}
+                 <div>
+                    <label className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 block flex items-center gap-2">
+                       Message
+                    </label>
+                    <select 
+                      value={quoteIndex}
+                      onChange={(e) => setQuoteIndex(Number(e.target.value))}
+                      className="w-full p-2 bg-white border border-gray-200 rounded shadow-sm outline-none focus:ring-1 focus:ring-gray-400 mb-2"
+                    >
+                      {quotes.map((q, idx) => (
                         <option key={idx} value={idx}>{q}</option>
-                    ))}
-                </select>
-                
-                {/* Custom Quote Input Area (Shows only if "직접 입력" is selected) */}
-                {quoteIndex === quotes.length - 1 && (
-                    <textarea 
+                      ))}
+                    </select>
+                    {quoteIndex === quotes.length - 1 && (
+                      <textarea 
                         value={customQuote}
                         onChange={(e) => setCustomQuote(e.target.value)}
-                        placeholder="이곳에 원하시는 축복의 말을 적어주세요."
-                        className="w-full p-3 rounded-xl border border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-200 bg-amber-50/50 text-sm h-24 resize-none"
-                    />
-                )}
-              </div>
+                        placeholder="직접 입력하세요..."
+                        className="w-full p-3 bg-yellow-50/50 border-2 border-yellow-100 rounded-lg focus:border-yellow-300 outline-none text-sm resize-none h-20"
+                      />
+                    )}
+                 </div>
 
-              <div className="h-px bg-gray-100" />
+                 {/* Theme Grid */}
+                 <div>
+                   <label className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 block">Theme</label>
+                   <div className="grid grid-cols-4 gap-3">
+                     {Object.values(themes).map((t) => (
+                       <button
+                         key={t.id}
+                         onClick={() => setTheme(t.id)}
+                         className={`
+                           h-12 rounded-lg border-2 transition-all shadow-sm
+                           ${theme === t.id ? 'border-gray-800 scale-105' : 'border-transparent hover:scale-105'}
+                         `}
+                         style={{ backgroundColor: t.id === 'warm' ? '#fdf6e3' : t.id === 'cool' ? '#e0f7fa' : t.id === 'pink' ? '#fce4ec' : '#f5f5f5' }}
+                       />
+                     ))}
+                   </div>
+                 </div>
+                 
+                 {/* Decoration & Font Grid */}
+                 <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 block">Sticker</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['bear', 'star', 'cloud', 'crown', 'cross', 'dove'].map((deco) => (
+                          <button
+                            key={deco}
+                            onClick={() => setDecoration(deco)}
+                            className={`p-2 rounded border hover:bg-gray-50 flex justify-center ${decoration === deco ? 'border-gray-800 bg-gray-50' : 'border-gray-200'}`}
+                          >
+                            {deco === 'bear' && <Smile size={18} />}
+                            {deco === 'star' && <Star size={18} />}
+                            {deco === 'cloud' && <Cloud size={18} />}
+                            {deco === 'crown' && <Crown size={18} />}
+                            {deco === 'cross' && <span>✝</span>}
+                            {deco === 'dove' && <Bird size={18} />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 block">Font</label>
+                      <div className="flex flex-col gap-2">
+                        {[
+                           { id: 'rounded', label: '동글' },
+                           { id: 'hand', label: '손글씨' },
+                           { id: 'serif', label: '명조' }
+                        ].map((f) => (
+                          <button
+                            key={f.id}
+                            onClick={() => setFontStyle(f.id)}
+                            className={`px-3 py-2 text-sm text-left rounded border ${fontStyle === f.id ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-200 hover:border-gray-400'}`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                 </div>
 
-              {/* Theme & Display Settings */}
-              <div className="space-y-6">
-                  {/* View Mode */}
-                  <div>
-                    <span className="text-gray-700 font-medium mb-3 block flex items-center gap-2"><Calendar size={16}/> 표시 형식</span>
-                    <div className="grid grid-cols-3 gap-2">
+                 {/* View Mode */}
+                 <div>
+                    <label className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 block">Format</label>
+                    <div className="flex gap-2">
                       {[
                         { id: 'days', label: 'D-Day' },
-                        { id: 'weeks', label: '주수' },
-                        { id: 'months', label: '개월수' }
+                        { id: 'weeks', label: 'Weeks' },
+                        { id: 'months', label: 'Months' }
                       ].map((mode) => (
                         <button
                           key={mode.id}
                           onClick={() => setViewMode(mode.id)}
-                          className={`p-2 rounded-lg text-sm transition-all ${viewMode === mode.id ? `${currentTheme.button} text-white shadow-md` : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                          className={`flex-1 py-2 text-sm rounded border ${viewMode === mode.id ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 hover:border-gray-400'}`}
                         >
                           {mode.label}
                         </button>
                       ))}
                     </div>
-                  </div>
+                 </div>
 
-                  {/* Colors */}
-                  <div>
-                    <span className="text-gray-700 font-medium mb-3 block flex items-center gap-2"><Palette size={16}/> 컬러 테마</span>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[
-                        { id: 'warm', color: '#fdf6e3', label: '웜 베이지' },
-                        { id: 'cool', color: '#e0f7fa', label: '쿨 민트' },
-                        { id: 'pink', color: '#fce4ec', label: '러블리 핑크' },
-                        { id: 'mono', color: '#f5f5f5', label: '모던 그레이' }
-                      ].map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => setTheme(t.id)}
-                          className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${theme === t.id ? `border-gray-400 bg-gray-50` : 'border-transparent hover:bg-gray-50'}`}
-                        >
-                          <div className="w-8 h-8 rounded-full shadow-sm" style={{ backgroundColor: t.color }}></div>
-                          <span className="text-xs text-gray-500">{t.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-              </div>
-
-              {/* Decoration & Font */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-gray-700 font-medium mb-3 block flex items-center gap-2"><Star size={16}/> 장식 아이콘</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {['bear', 'star', 'cloud', 'crown', 'cross', 'dove'].map((deco) => (
-                      <button
-                        key={deco}
-                        onClick={() => setDecoration(deco)}
-                        className={`p-2 rounded-lg border transition-all flex items-center justify-center ${decoration === deco ? 'border-gray-400 bg-gray-100' : 'border-gray-200'}`}
-                      >
-                         {deco === 'bear' && <Smile size={20} />}
-                         {deco === 'star' && <Star size={20} />}
-                         {deco === 'cloud' && <Cloud size={20} />}
-                         {deco === 'crown' && <Crown size={20} />}
-                         {deco === 'cross' && <ChristianCross className="w-5 h-5" />}
-                         {deco === 'dove' && <Bird size={20} />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-700 font-medium mb-3 block flex items-center gap-2"><Type size={16}/> 폰트 스타일</span>
-                  <div className="flex flex-col gap-2">
-                    {[
-                      { id: 'rounded', label: '동글 (Jua)' }, 
-                      { id: 'hand', label: '손글씨 (Gamja)' },  
-                      { id: 'serif', label: '명조 (Gowun)' },   
-                    ].map((f) => (
-                      <button
-                        key={f.id}
-                        onClick={() => setFontStyle(f.id)}
-                        className={`px-3 py-2 rounded-lg border text-sm transition-all text-left ${fontStyle === f.id ? 'border-gray-400 bg-gray-100' : 'border-gray-200'}`}
-                      >
-                        {f.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-            </div>
-            
-            <div className="p-4 bg-gray-50 text-center">
-              <button 
-                onClick={() => setShowSettings(false)}
-                className={`w-full py-3 rounded-xl font-bold text-white shadow-md transition-transform active:scale-95 ${currentTheme.button}`}
-              >
-                적용하기
-              </button>
-            </div>
+               </div>
+             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };
 
 export default BabyDdayApp;
-

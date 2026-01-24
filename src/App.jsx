@@ -323,11 +323,13 @@ const BabyDdayApp = () => {
            </div>
 
            {/* Handwritten Quote */}
-           <div className="w-full max-w-md relative p-6">
+           <div 
+             className="w-full max-w-md relative p-6 transition-transform duration-200"
+             style={{ transform: `scale(${fontScale})` }}
+           >
               <span className="absolute top-0 left-0 text-6xl opacity-10 font-serif">"</span>
               <p 
-                className={`text-xl md:text-2xl ${currentTheme.text} text-center leading-relaxed font-handwriting transition-transform duration-200`}
-                style={{ transform: `scale(${fontScale})` }}
+                className={`text-xl md:text-2xl ${currentTheme.text} text-center leading-relaxed font-handwriting`}
               >
                  {quoteIndex === quotes.length - 1 ? (customQuote || "당신의 축복 문구를 적어주세요...") : quotes[quoteIndex]}
               </p>

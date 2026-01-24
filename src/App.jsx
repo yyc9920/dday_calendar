@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Settings, Calendar, Heart, Star, Smile, Crown, Cloud, Bird, Image as ImageIcon, Upload, X, Palette, Type, PenTool } from 'lucide-react';
 import useLocalStorage from './hooks/useLocalStorage';
+import { compressImage } from './utils/imageCompressor';
 
 // --- Sub-components defined outside to prevent re-creation ---
 
@@ -233,18 +234,16 @@ const BabyDdayApp = () => {
 
   const displayData = getDisplayData();
 
-  const handlePhotoUpload = (event) => {
+  const handlePhotoUpload = async (event) => {
     const file = event.target.files[0];
     if (file) {
-      if (file.size > 2000000) { // Limit to ~2MB
-        alert("사진 용량이 너무 큽니다. (2MB 이하 권장)");
-        return;
+      try {
+        const compressedDataUrl = await compressImage(file, 2); 
+        setPhotoUrl(compressedDataUrl);
+      } catch (error) {
+        console.error("Image upload error:", error);
+        alert("이미지 처리 중 오류가 발생했습니다.");
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoUrl(reader.result);
-      };
-      reader.readAsDataURL(file);
     }
   };
 

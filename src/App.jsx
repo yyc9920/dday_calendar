@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Settings, Calendar, Heart, Star, Smile, Crown, Cloud, Bird, Image as ImageIcon, Upload, X, Palette, Type, PenTool } from 'lucide-react';
+import { Settings, Calendar, Heart, Star, Smile, Crown, Cloud, Bird, Image as ImageIcon, Upload, X, Palette, Type, PenTool, Minus, Plus } from 'lucide-react';
 import useLocalStorage from './hooks/useLocalStorage';
 import { compressImage } from './utils/imageCompressor';
 
@@ -30,7 +30,7 @@ const Decoration = ({ type, currentTheme }) => {
   }
 };
 
-const FlipCard = ({ text, currentTheme }) => {
+const FlipCard = ({ text, currentTheme, fontScale = 1 }) => {
   // Adjust font size based on text length to keep "Day" or long numbers fitting nicely
   const isLongText = text.toString().length > 2;
   const fontSizeClass = isLongText 
@@ -66,7 +66,10 @@ const FlipCard = ({ text, currentTheme }) => {
          <div className="absolute top-1/2 left-0 w-full h-[2px] card-crease z-0"></div>
 
          {/* Text */}
-         <span className={`${fontSizeClass} font-bold ${currentTheme.text} leading-none mt-4 z-10 drop-shadow-sm`}>
+         <span 
+           className={`${fontSizeClass} font-bold ${currentTheme.text} leading-none mt-4 z-10 drop-shadow-sm transition-transform duration-200`}
+           style={{ transform: `scale(${fontScale})` }}
+         >
            {text}
          </span>
       </div>
@@ -124,6 +127,7 @@ const BabyDdayApp = () => {
   const [quoteIndex, setQuoteIndex] = useLocalStorage('quoteIndex', 0);
   const [customQuote, setCustomQuote] = useLocalStorage('customQuote', ''); 
   const [photoUrl, setPhotoUrl] = useLocalStorage('photoUrl', null); 
+  const [fontScale, setFontScale] = useLocalStorage('fontScale', 1);
   
   // Settings visibility doesn't need persistence
   const [showSettings, setShowSettings] = React.useState(false);
@@ -307,18 +311,24 @@ const BabyDdayApp = () => {
            {/* Calendar Flip Cards */}
            <div className="flex items-end justify-center flex-nowrap gap-x-1 md:gap-x-2 mb-12 mt-12 md:mt-0">
                {displayData.cards.map((text, idx) => (
-                 <FlipCard key={idx} text={text} currentTheme={currentTheme} />
+                 <FlipCard key={idx} text={text} currentTheme={currentTheme} fontScale={fontScale} />
                ))}
            </div>
            
-           <div className={`text-2xl md:text-4xl ${currentTheme.accent} font-medium mb-16 border-b-2 border-dotted ${currentTheme.border} pb-2`}>
+           <div 
+             className={`text-2xl md:text-4xl ${currentTheme.accent} font-medium mb-16 border-b-2 border-dotted ${currentTheme.border} pb-2 transition-transform duration-200`}
+             style={{ transform: `scale(${fontScale})` }}
+           >
                {displayData.label}
            </div>
 
            {/* Handwritten Quote */}
            <div className="w-full max-w-md relative p-6">
               <span className="absolute top-0 left-0 text-6xl opacity-10 font-serif">"</span>
-              <p className={`text-xl md:text-2xl ${currentTheme.text} text-center leading-relaxed font-handwriting`}>
+              <p 
+                className={`text-xl md:text-2xl ${currentTheme.text} text-center leading-relaxed font-handwriting transition-transform duration-200`}
+                style={{ transform: `scale(${fontScale})` }}
+              >
                  {quoteIndex === quotes.length - 1 ? (customQuote || "당신의 축복 문구를 적어주세요...") : quotes[quoteIndex]}
               </p>
               <span className="absolute bottom-0 right-0 text-6xl opacity-10 font-serif">"</span>
@@ -461,6 +471,28 @@ const BabyDdayApp = () => {
                             {f.label}
                           </button>
                         ))}
+                        
+                        {/* Font Size Control */}
+                        <div className="flex items-center justify-between border-t border-gray-200 pt-3 mt-1">
+                             <span className="text-xs font-bold text-gray-400">SIZE</span>
+                             <div className="flex items-center gap-1 bg-gray-50 rounded-full p-1 border border-gray-200">
+                                <button 
+                                  onClick={() => setFontScale(prev => Math.max(0.5, Number(prev) - 0.1))}
+                                  className="p-1 rounded-full hover:bg-white hover:shadow-sm text-gray-500 transition-all"
+                                >
+                                  <Minus size={14} />
+                                </button>
+                                <span className="text-xs font-mono w-10 text-center font-bold text-gray-600">
+                                  {Math.round(fontScale * 100)}%
+                                </span>
+                                <button 
+                                  onClick={() => setFontScale(prev => Math.min(2.0, Number(prev) + 0.1))}
+                                  className="p-1 rounded-full hover:bg-white hover:shadow-sm text-gray-500 transition-all"
+                                >
+                                  <Plus size={14} />
+                                </button>
+                             </div>
+                        </div>
                       </div>
                     </div>
                  </div>
